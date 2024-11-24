@@ -44,10 +44,21 @@ jobs:
       - name: Analyze project source
         run: flutter analyze --no-fatal-infos
 
+      - name: Check if test directory exists
+        id: check_tests
+        run: |
+          if [ -d "test" ]; then
+            echo "::set-output name=has_tests::true"
+          else
+            echo "::set-output name=has_tests::false"
+          fi
+
       - name: Run tests with coverage
+        if: steps.check_tests.outputs.has_tests == 'true'
         run: flutter test --coverage
 
       - name: Upload coverage reports
+        if: steps.check_tests.outputs.has_tests == 'true'
         uses: codecov/codecov-action@v3
         with:
           file: coverage/lcov.info

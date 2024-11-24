@@ -77,7 +77,7 @@ lib/
    # Install dependencies
    flutter pub get
 
-   # Run the app
+   # Run the Flutter app
    flutter run
    ```
 

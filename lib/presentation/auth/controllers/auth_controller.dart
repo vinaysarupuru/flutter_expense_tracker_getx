@@ -50,15 +50,24 @@ class AuthController extends GetxController {
   }
 
   Future<void> signup(String name, String email, String password) async {
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      error.value = 'All fields are required';
+      return;
+    }
+
     isLoading.value = true;
     error.value = '';
-    
+
     try {
       final user = await _authRepository.signup(name, email, password);
       currentUser.value = user;
       Get.offAllNamed(Routes.home);
     } catch (e) {
-      error.value = 'Error during signup';
+      if (e.toString().contains('Email already exists')) {
+        error.value = 'Email is already registered';
+      } else {
+        error.value = 'Error during signup. Please try again.';
+      }
     } finally {
       isLoading.value = false;
     }

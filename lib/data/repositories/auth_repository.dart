@@ -15,7 +15,20 @@ class AuthRepository {
       whereArgs: [email, password],
     );
 
-    if (users.isEmpty) return null;
+    if (users.isEmpty) {
+      // Check if the email exists first
+      final emailExists = await db.query(
+        'users',
+        where: 'email = ?',
+        whereArgs: [email],
+      );
+
+      if (emailExists.isEmpty) {
+        throw Exception('User not found');
+      } else {
+        throw Exception('Incorrect password');
+      }
+    }
 
     final user = UserModel.fromJson(users.first);
     await _storage.write(key: 'user_id', value: user.id.toString());
@@ -24,6 +37,17 @@ class AuthRepository {
 
   Future<UserModel> signup(String name, String email, String password) async {
     final db = await _db.database;
+    // Check if email already exists
+    final existingUser = await db.query(
+      'users',
+      where: 'email = ?',
+      whereArgs: [email],
+    );
+
+    if (existingUser.isNotEmpty) {
+      throw Exception('Email already exists');
+    }
+
     final userData = {
       'name': name,
       'email': email,

@@ -16,6 +16,10 @@ env:
   FLUTTER_VERSION: '3.16.0'
   XCODE_VERSION: '15.2.0'
 
+permissions:
+  contents: write
+  packages: write 
+  
 jobs:
   # Quality checks and testing
   test:
@@ -71,6 +75,7 @@ jobs:
     name: Build Android App
     needs: test
     runs-on: ubuntu-latest
+   
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -184,12 +189,14 @@ jobs:
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: |
-            release-apk/app-release.apk
-            release-bundle/app-release.aab
-          tag_name: v${{ github.run_number }}
-          name: Release v${{ github.run_number }}
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+          tag_name: ${{ github.ref }}
+          name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
           generate_release_notes: true

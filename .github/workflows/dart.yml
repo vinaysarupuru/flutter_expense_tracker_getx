@@ -82,8 +82,20 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Install dependencies
-        run: flutter pub get
+      - name: Initialize Android project
+        run: |
+          # Initialize Android platform
+          flutter create --platforms=android .
+          
+          # Restore original lib directory
+          rm -rf lib
+          git checkout lib/
+          
+          # Restore pubspec.yaml
+          git checkout pubspec.yaml
+          
+          # Get dependencies
+          flutter pub get
 
       # Build different variants of the app
       - name: Build Android Debug APK

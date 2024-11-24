@@ -14,7 +14,7 @@ on:
 # Environment variables used across jobs
 env:
   FLUTTER_VERSION: '3.16.0'
-  XCODE_VERSION: '14.2'
+  XCODE_VERSION: '15.2.0'
 
 jobs:
   # Quality checks and testing

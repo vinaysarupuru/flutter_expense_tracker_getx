@@ -1,42 +1,234 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
+# Flutter CI/CD Workflow
+# This workflow handles the CI/CD pipeline for the Flutter Expense Tracker app
+# Including testing, building, and deployment for both Android and iOS platforms
 
-name: Dart
+name: Flutter CI/CD
 
+# Trigger the workflow on push and pull request events for the main branch
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
+# Environment variables used across jobs
+env:
+  FLUTTER_VERSION: '3.16.0'
+  XCODE_VERSION: '14.2'
+
 jobs:
-  build:
+  # Quality checks and testing
+  test:
+    name: Quality Checks & Testing
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      # Note: This workflow uses the latest stable version of the Dart SDK.
-      # You can specify other versions if desired, see documentation here:
-      # https://github.com/dart-lang/setup-dart/blob/main/README.md
-      # - uses: dart-lang/setup-dart@v1
-      - uses: dart-lang/setup-dart@9a04e6d73cca37bd455e0608d7e5092f881fd603
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
 
       - name: Install dependencies
         run: flutter pub get
 
-      # Uncomment this step to verify the use of 'dart format' on each commit.
-      # - name: Verify formatting
-      #   run: dart format --output=none --set-exit-if-changed .
+      - name: Verify formatting
+        run: flutter format --set-exit-if-changed .
 
-      # Consider passing '--fatal-infos' for slightly stricter analysis.
       - name: Analyze project source
-        run: dart analyze
+        run: flutter analyze --no-fatal-infos
 
-      # Your project will need to have tests in test/ and a dependency on
-      # package:test for this step to succeed. Note that Flutter projects will
-      # want to change this to 'flutter test'.
-      - name: Run tests
-        run: dart test
+      - name: Run tests with coverage
+        run: flutter test --coverage
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: coverage/lcov.info
+          fail_ci_if_error: true
+
+  # Android build job
+  build_android:
+    name: Build Android App
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Build different variants of the app
+      - name: Build Android Debug APK
+        run: flutter build apk --debug
+
+      - name: Build Android Release APK
+        run: flutter build apk --release
+
+      - name: Build Android App Bundle
+        run: flutter build appbundle --release
+
+      # Upload build artifacts
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload App Bundle
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-bundle
+          path: build/app/outputs/bundle/release/app-release.aab
+
+  # iOS build job
+  build_ios:
+    name: Build iOS App
+    needs: test
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          flutter pub get
+          cd ios && pod install && cd ..
+
+      # Build different variants of the app
+      - name: Build iOS Debug
+        run: flutter build ios --debug --no-codesign
+
+      - name: Build iOS Release
+        run: flutter build ios --release --no-codesign
+
+      # Archive the build outputs
+      - name: Archive iOS Build
+        uses: actions/upload-artifact@v3
+        with:
+          name: ios-build
+          path: build/ios/iphoneos
+
+  # Deploy job (only runs on main branch pushes)
+  deploy:
+    name: Deploy Apps
+    needs: [build_android, build_ios]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Download artifacts from previous jobs
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+
+      # Create GitHub Release
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release-apk/app-release.apk
+            release-bundle/app-release.aab
+          tag_name: v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+      # Optional: Deploy to Play Store (commented out as it requires setup)
+      # - name: Deploy to Play Store
+      #   uses: r0adkll/upload-google-play@v1
+      #   with:
+      #     serviceAccountJsonPlainText: ${{ secrets.PLAYSTORE_ACCOUNT_KEY }}
+      #     packageName: com.yourcompany.expensetracker
+      #     releaseFiles: release-bundle/app-release.aab
+      #     track: production
+
+      # Optional: Deploy to App Store (commented out as it requires setup)
+      # - name: Deploy to App Store
+      #   uses: apple-actions/upload-testflight-build@v1
+      #   with:
+      #     app-path: ios-build/Runner.ipa
+      #     api-key: ${{ secrets.APPSTORE_API_KEY }}
+      #     api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
+      #     api-issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+
+# Add notifications for workflow completion
+  notify:
+    name: Notify Team
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: always()
+    #steps:
+      # Slack notification (commented out)
+      # - name: Send Slack Notification
+      #   uses: 8398a7/action-slack@v3
+      #   if: always()
+      #   with:
+      #     status: custom
+      #     fields: repo,message,commit,author,action,eventName,ref,workflow,job,took
+      #     custom_payload: |
+      #       {
+      #         "attachments": [{
+      #           "color": "${{ job.status == 'success' && 'good' || job.status == 'failure' && 'danger' || 'warning' }}",
+      #           "text": "Flutter Expense Tracker: ${{ job.status == 'success' && ':white_check_mark:' || ':x:' }} ${{ github.workflow }} completed with status ${{ job.status }}\nCommit: ${{ github.event.head_commit.message }}"
+      #         }]
+      #       }
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      # Email notification
+      # - name: Send Email Notification
+      #   uses: dawidd6/action-send-mail@v3
+      #   if: always()
+      #   with:
+      #     server_address: smtp.gmail.com
+      #     server_port: 465
+      #     username: ${{ secrets.EMAIL_USERNAME }}
+      #     password: ${{ secrets.EMAIL_PASSWORD }}
+      #     subject: "Flutter Expense Tracker Build ${{ job.status == 'success' && '✅' || '❌' }}"
+      #     body: |
+      #       Build Status: ${{ job.status }}
+            
+      #       Repository: ${{ github.repository }}
+      #       Branch: ${{ github.ref }}
+      #       Commit: ${{ github.event.head_commit.message }}
+            
+      #       Workflow: ${{ github.workflow }}
+      #       Run Number: ${{ github.run_number }}
+            
+      #       View the run details here:
+      #       ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      #     to: ${{ secrets.EMAIL_TO }}
+      #     from: GitHub Actions

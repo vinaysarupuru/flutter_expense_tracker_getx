@@ -185,11 +185,11 @@ jobs:
       #     api-issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
 
 # Add notifications for workflow completion
-  notify:
-    name: Notify Team
-    needs: deploy
-    runs-on: ubuntu-latest
-    if: always()
+  # notify:
+  #   name: Notify Team
+  #   needs: deploy
+  #   runs-on: ubuntu-latest
+  #   if: always()
     #steps:
       # Slack notification (commented out)
       # - name: Send Slack Notification

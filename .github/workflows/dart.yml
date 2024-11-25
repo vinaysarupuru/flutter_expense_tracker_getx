@@ -2,14 +2,50 @@
 # This workflow handles the CI/CD pipeline for the Flutter Expense Tracker app
 # Including testing, building, and deployment for both Android and iOS platforms
 
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
 name: Flutter CI/CD
 
 # Trigger the workflow on push and pull request events for the main branch
 on:
+  # Manual trigger with input parameters
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build Type'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+      run_tests:
+        description: 'Run Tests'
+        required: true
+        default: true
+        type: boolean
+      create_release:
+        description: 'Create Release'
+        required: true
+        default: false
+        type: boolean
+  
+  # Automatic trigger for main branch
   push:
-    branches: [ "main" ]
+    branches: [ "master" ]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - '.gitattributes'
   pull_request:
-    branches: [ "main" ]
+    branches: [ "master" ]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - '.gitattributes'
 
 # Environment variables used across jobs
 env:
@@ -25,6 +61,7 @@ jobs:
   test:
     name: Quality Checks & Testing
     runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_tests }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -74,6 +111,7 @@ jobs:
   build_android:
     name: Build Android App
     needs: test
+    if: ${{ always() && (needs.test.result == 'success' || needs.test.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -106,12 +144,15 @@ jobs:
 
       # Build different variants of the app
       - name: Build Android Debug APK
+        if: ${{ github.event.inputs.build_type == 'debug' || github.event_name != 'workflow_dispatch' }}
         run: flutter build apk --debug
 
       - name: Build Android Release APK
+        if: ${{ github.event.inputs.build_type == 'release' || github.event_name != 'workflow_dispatch' }}
         run: flutter build apk --release
 
       - name: Build Android App Bundle
+        if: ${{ github.event.inputs.build_type == 'release' || github.event_name != 'workflow_dispatch' }}
         run: flutter build appbundle --release
 
       # Verify build artifacts exist
@@ -130,6 +171,7 @@ jobs:
 
       # Create Release
       - name: Create Release
+        if: ${{ github.event.inputs.create_release == 'true' || github.event_name != 'workflow_dispatch' }}
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

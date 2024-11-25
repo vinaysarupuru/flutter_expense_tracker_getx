@@ -21,6 +21,23 @@ A modern, feature-rich expense tracking application built with Flutter, implemen
 - Quick expense categorization
 - Visual spending patterns and insights
 
+## Upcoming Features
+
+### Enhanced User Experience
+- 🌐 **Internationalization**: Multi-language support for global users
+- 📱 **Responsive UI**: Optimized layouts for all device sizes
+- 🖥️ **Adaptive UI**: Platform-specific design for Android, iOS, Mac, and Windows
+
+### Advanced Financial Management
+- 💰 **Budget Planning**: Create and track budgets with customizable alerts
+- 👥 **Multi-User Support**: Add and manage transactions with multiple people
+- 💳 **Payment Methods**: Track transactions by mode (Cash/UPI/Bank Transfer/Cheque)
+
+### Data Management
+- 📊 **Import/Export**: Transfer data via Excel/CSV formats
+- 🔄 **Sync**: Cross-device data synchronization
+- 📈 **Advanced Analytics**: Detailed financial insights and predictions
+
 ## Tech Stack
 
 - **Framework**: Flutter

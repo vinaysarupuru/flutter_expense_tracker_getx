@@ -75,7 +75,9 @@ jobs:
     name: Build Android App
     needs: test
     runs-on: ubuntu-latest
-   
+    permissions:
+      contents: write
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -112,24 +114,34 @@ jobs:
       - name: Build Android App Bundle
         run: flutter build appbundle --release
 
-      # Upload build artifacts
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v3
-        with:
-          name: debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+      # Verify build artifacts exist
+      - name: List build artifacts
+        run: |
+          ls -R build/app/outputs/flutter-apk/
+          ls -R build/app/outputs/bundle/release/
 
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v3
-        with:
-          name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+      # Create a tag for the release
+      - name: Create tag
+        run: |
+          VERSION=$(date +'v%Y.%m.%d-%H%M')
+          echo "RELEASE_TAG=$VERSION" >> $GITHUB_ENV
+          git tag $VERSION
+          git push origin $VERSION
 
-      - name: Upload App Bundle
-        uses: actions/upload-artifact@v3
+      # Create Release
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: release-bundle
-          path: build/app/outputs/bundle/release/app-release.aab
+          files: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: Release ${{ env.RELEASE_TAG }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
 
   # iOS build job
   build_ios:
@@ -184,22 +196,6 @@ jobs:
       # Download artifacts from previous jobs
       - name: Download all artifacts
         uses: actions/download-artifact@v3
-
-      # Create GitHub Release
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          files: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/bundle/release/app-release.aab
-          tag_name: ${{ github.ref }}
-          name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
-          generate_release_notes: true
 
       # Optional: Deploy to Play Store (commented out as it requires setup)
       # - name: Deploy to Play Store
